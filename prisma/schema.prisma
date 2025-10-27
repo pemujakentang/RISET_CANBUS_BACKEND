@@ -13,3 +13,17 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
+
+model VehicleTelemetry {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId   String
+  timestamp   DateTime @default(now())
+  rpm         Int
+  throttle    Float
+  speed       Float
+  gear        Int
+  brake       Float
+  intakeTemp  Float
+  engineTemp  Float
+  odoMeter    Int
+}
