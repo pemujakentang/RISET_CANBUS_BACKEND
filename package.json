@@ -1,0 +1,37 @@
+{
+  "name": "penelitian_backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pemujakentang/RISET_CANBUS_BACKEND.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pemujakentang/RISET_CANBUS_BACKEND/issues"
+  },
+  "homepage": "https://github.com/pemujakentang/RISET_CANBUS_BACKEND#readme",
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "prisma": "^6.18.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.18.0",
+    "express": "^5.1.0",
+    "mqtt": "^5.14.1",
+    "ts-node-dev": "^2.0.0"
+  }
+}
