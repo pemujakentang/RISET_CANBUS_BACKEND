@@ -55,6 +55,24 @@ client.on("message", async (topic, msg) => {
     return;
   }
 
+  // 🧩 1️⃣.5️⃣ Odometer Sync Request (NEW)
+  if (topic === "esp32mqtt/odo/sync/request") {
+    try {
+      const last = await prisma.vehicle.findFirst({
+        orderBy: { timestamp: "desc" },
+      });
+      const totalOdoKm = last ? last.odoMeter ?? 0 : 0;
+      client.publish(
+        "esp32mqtt/odo/sync/response",
+        JSON.stringify({ totalOdoKm })
+      );
+      console.log("📤 Sent odo sync:", totalOdoKm);
+    } catch (err) {
+      console.error("❌ Odo sync failed:", err);
+    }
+    return;
+  }
+
   // 🧩 2️⃣ Telemetry data
   if (topic === MQTT_TOPIC_VEHICLE) {
     try {
