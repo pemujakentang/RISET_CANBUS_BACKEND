@@ -14,15 +14,31 @@ generator client {
 }
 
 model Vehicle {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  vehicleId           String
-  timestamp           DateTime @default(now())
-  rpm                 Int
-  throttle            Float
-  speed               Float
-  gear                Int
-  brake               Float
-  engineCoolantTemp   Float
-  airIntakeTemp       Float  
-  odoMeter            Int
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId         String
+  bootId            String?                        // Unique per ESP boot session (to detect resets)
+  timestamp         DateTime @default(now())        // Time of message insertion
+
+  // Core telemetry
+  rpm               Int
+  throttle          Float
+  speed             Float
+  gear              Int
+  brake             Float
+  engineCoolantTemp Float
+  airIntakeTemp     Float
+  odoMeter          Int                             // Raw CAN byte (0–255)
+
+  // Optional computed fields
+  tripOdoKm         Float?                          // Odo computed by ESP (since boot)
+  totalOdoKm        Float?                          // Lifetime odo computed by backend
+
+  @@index([vehicleId, timestamp])
+}
+
+model VehicleOdometer {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  vehicleId   String   @unique
+  totalOdoKm  Float
+  updatedAt   DateTime @updatedAt
 }

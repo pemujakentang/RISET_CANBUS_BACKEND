@@ -3,13 +3,13 @@ import { prisma } from "./db.js";
 import type { VehicleMessage } from "./types.js";
 
 const MQTT_BROKER = "mqtt://localhost:1883";
-const MQTT_USER   = "ESP32MQTT";
-const MQTT_PASS   = "ESP32MQTT";
+const MQTT_USER = "ESP32MQTT";
+const MQTT_PASS = "ESP32MQTT";
 
 // Topics
 const MQTT_TOPIC_VEHICLE = "esp32mqtt/vehicle";
-const MQTT_TOPIC_BE_REQ  = "esp32mqtt/handshake/be/request";
-const MQTT_TOPIC_BE_RES  = "esp32mqtt/handshake/be/response";
+const MQTT_TOPIC_BE_REQ = "esp32mqtt/handshake/be/request";
+const MQTT_TOPIC_BE_RES = "esp32mqtt/handshake/be/response";
 
 const client = mqtt.connect(MQTT_BROKER, {
   username: MQTT_USER,
@@ -19,17 +19,28 @@ const client = mqtt.connect(MQTT_BROKER, {
 const buffer: VehicleMessage[] = [];
 const FLUSH_MS = 1000;
 
+// ✅ Odometer tracking cache per vehicle
+interface OdoState {
+  lastOdoByte: number;
+  totalKm: number;
+  bootId?: string;
+}
+
+const odoCache = new Map<string, OdoState>();
+
 client.on("connect", () => {
   console.log("✅ MQTT connected (Backend)");
   client.subscribe(MQTT_TOPIC_VEHICLE);
   client.subscribe(MQTT_TOPIC_BE_REQ);
 });
 
-// Handle all incoming messages
+// ============================================================
+// 🧩 Handle incoming MQTT messages
+// ============================================================
 client.on("message", async (topic, msg) => {
   const message = msg.toString();
 
-  // 🧩 1️⃣ Handle handshake from ESP
+  // 🧩 1️⃣ Handshake from ESP
   if (topic === MQTT_TOPIC_BE_REQ) {
     console.log("📩 Handshake request from ESP:", message);
     try {
@@ -44,7 +55,7 @@ client.on("message", async (topic, msg) => {
     return;
   }
 
-  // 🧩 2️⃣ Handle telemetry data
+  // 🧩 2️⃣ Telemetry data
   if (topic === MQTT_TOPIC_VEHICLE) {
     try {
       const p = JSON.parse(message) as VehicleMessage;
@@ -59,13 +70,63 @@ client.on("message", async (topic, msg) => {
         typeof p.airIntakeTemp === "number" &&
         typeof p.odoMeter === "number"
       ) {
-        buffer.push({
+        const vehicleId = p.vehicleId ?? "ESP32";
+
+        // ============================================================
+        // 🚗 Compute odometer accumulation (using cache)
+        // ============================================================
+        const prev = odoCache.get(vehicleId);
+
+        // Convert raw 0–255 byte to "partial distance" in km
+        // 100 units = 1 km → 1 unit = 0.01 km
+        const byteKm = p.odoMeter * 0.01;
+
+        let totalKm = prev?.totalKm ?? 0;
+        let lastByte = prev?.lastOdoByte ?? p.odoMeter;
+
+        if (prev) {
+          if (p.bootId && p.bootId !== prev.bootId) {
+            // ESP reset — keep total, reset lastByte
+            console.log(`🔁 ESP reset detected for ${vehicleId}`);
+            odoCache.set(vehicleId, {
+              lastOdoByte: p.odoMeter,
+              totalKm,
+              bootId: p.bootId,
+            });
+          } else {
+            // Normal operation
+            let deltaByte = p.odoMeter - lastByte;
+            if (deltaByte < 0) deltaByte += 256; // handle wraparound
+
+            const deltaKm = deltaByte / 100.0; // 100 bytes per km
+            totalKm += deltaKm;
+
+            odoCache.set(vehicleId, {
+              lastOdoByte: p.odoMeter,
+              totalKm,
+              bootId: p.bootId ?? prev.bootId,
+            });
+          }
+        } else {
+          // First time seeing this vehicle
+          odoCache.set(vehicleId, {
+            lastOdoByte: p.odoMeter,
+            totalKm,
+            bootId: p.bootId,
+          });
+        }
+
+        // Attach backend-calculated odometer fields
+        const enriched: VehicleMessage = {
           ...p,
-          vehicleId: p.vehicleId ?? "ESP32",
+          vehicleId,
           timestamp: new Date(),
-        });
+          totalOdoKm: totalKm,
+        };
+
+        buffer.push(enriched);
       } else {
-        console.warn("⚠️ Invalid payload shape:", p);
+        console.warn("⚠️ Invalid payload shape:", message);
       }
     } catch (e) {
       console.error("❌ Invalid JSON:", e);
@@ -73,13 +134,30 @@ client.on("message", async (topic, msg) => {
   }
 });
 
-// 🧩 3️⃣ Periodic database flush
+// ============================================================
+// 🧩 Periodic database flush
+// ============================================================
 setInterval(async () => {
   if (!buffer.length) return;
   const batch = buffer.splice(0, buffer.length);
+
   try {
     await prisma.vehicle.createMany({ data: batch });
-    console.log(`📥 Inserted ${batch.length} records`);
+    console.log(`📥 Inserted ${batch.length} telemetry records`);
+
+    // ✅ Update VehicleOdometer totals (optional)
+    for (const record of batch) {
+      if (record.totalOdoKm != null) {
+        await prisma.vehicleOdometer.upsert({
+          where: { vehicleId: record.vehicleId },
+          update: { totalOdoKm: record.totalOdoKm },
+          create: {
+            vehicleId: record.vehicleId,
+            totalOdoKm: record.totalOdoKm,
+          },
+        });
+      }
+    }
   } catch (e) {
     console.error("❌ Batch insert failed:", e);
   }
