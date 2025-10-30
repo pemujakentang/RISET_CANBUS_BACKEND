@@ -3,13 +3,15 @@ import { prisma } from "./db.js";
 import type { VehicleMessage } from "./types.js";
 
 const MQTT_BROKER = "mqtt://localhost:1883";
-const MQTT_USER   = "ESP32MQTT";
-const MQTT_PASS   = "ESP32MQTT";
+const MQTT_USER = "ESP32MQTT";
+const MQTT_PASS = "ESP32MQTT";
 
 // Topics
 const MQTT_TOPIC_VEHICLE = "esp32mqtt/vehicle";
-const MQTT_TOPIC_BE_REQ  = "esp32mqtt/handshake/be/request";
-const MQTT_TOPIC_BE_RES  = "esp32mqtt/handshake/be/response";
+const MQTT_TOPIC_BE_REQ = "esp32mqtt/handshake/be/request";
+const MQTT_TOPIC_BE_RES = "esp32mqtt/handshake/be/response";
+const MQTT_TOPIC_ODO_REQ = "esp32mqtt/odo/sync/request"; // ✅ added
+const MQTT_TOPIC_ODO_RES = "esp32mqtt/odo/sync/response"; // ✅ added
 
 const client = mqtt.connect(MQTT_BROKER, {
   username: MQTT_USER,
@@ -23,11 +25,44 @@ client.on("connect", () => {
   console.log("✅ MQTT connected (Backend)");
   client.subscribe(MQTT_TOPIC_VEHICLE);
   client.subscribe(MQTT_TOPIC_BE_REQ);
+  client.subscribe(MQTT_TOPIC_ODO_REQ); // ✅ added
 });
 
 // Handle all incoming messages
 client.on("message", async (topic, msg) => {
   const message = msg.toString();
+
+  // 🧩 0️⃣ Handle odometer sync request (ESP wants latest odo)
+  if (topic === MQTT_TOPIC_ODO_REQ) {
+    // ✅ added
+    console.log("📩 Odo sync request from ESP");
+
+    try {
+      // Try to fetch from vehicleOdometer table (if you have it)
+      const odoRecord = await prisma.vehicleOdometer.findFirst({
+        orderBy: { updatedAt: "desc" },
+      });
+
+      // fallback: use last telemetry record if no odo record found
+      let totalOdoKm = 0;
+      if (odoRecord) {
+        totalOdoKm = odoRecord.totalOdoKm ?? 0;
+      } else {
+        const last = await prisma.vehicle.findFirst({
+          orderBy: { timestamp: "desc" },
+        });
+        totalOdoKm = last ? last.odoMeter ?? 0 : 0;
+      }
+
+      // send response back to ESP
+      client.publish(MQTT_TOPIC_ODO_RES, JSON.stringify({ totalOdoKm }));
+      console.log("📤 Sent odo sync response:", totalOdoKm);
+    } catch (e) {
+      console.error("❌ Failed to handle odo sync:", e);
+    }
+
+    return; // stop here (don’t continue below)
+  }
 
   // 🧩 1️⃣ Handle handshake from ESP
   if (topic === MQTT_TOPIC_BE_REQ) {
