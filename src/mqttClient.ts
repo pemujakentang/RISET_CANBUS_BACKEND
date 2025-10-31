@@ -33,35 +33,27 @@ client.on("message", async (topic, msg) => {
   const message = msg.toString();
 
   // 🧩 0️⃣ Handle odometer sync request (ESP wants latest odo)
-  if (topic === MQTT_TOPIC_ODO_REQ) {
-    // ✅ added
-    console.log("📩 Odo sync request from ESP");
-
+  if (topic === "esp32mqtt/odo/sync/request") {
     try {
-      // Try to fetch from vehicleOdometer table (if you have it)
-      const odoRecord = await prisma.vehicleOdometer.findFirst({
-        orderBy: { updatedAt: "desc" },
+      // Get the latest record (sorted by timestamp)
+      const last = await prisma.vehicle.findFirst({
+        orderBy: { timestamp: "desc" },
       });
 
-      // fallback: use last telemetry record if no odo record found
-      let totalOdoKm = 0;
-      if (odoRecord) {
-        totalOdoKm = odoRecord.totalOdoKm ?? 0;
-      } else {
-        const last = await prisma.vehicle.findFirst({
-          orderBy: { timestamp: "desc" },
-        });
-        totalOdoKm = last ? last.odoMeter ?? 0 : 0;
-      }
+      // Use odoMeter from that record, or 0 if not found
+      const totalOdoKm = last ? last.odoMeter ?? 0 : 0;
 
-      // send response back to ESP
-      client.publish(MQTT_TOPIC_ODO_RES, JSON.stringify({ totalOdoKm }));
-      console.log("📤 Sent odo sync response:", totalOdoKm);
-    } catch (e) {
-      console.error("❌ Failed to handle odo sync:", e);
+      // Publish back to ESP32
+      client.publish(
+        "esp32mqtt/odo/sync/response",
+        JSON.stringify({ totalOdoKm })
+      );
+
+      console.log("📤 Sent odo sync:", totalOdoKm);
+    } catch (err) {
+      console.error("❌ Odo sync failed:", err);
     }
-
-    return; // stop here (don’t continue below)
+    return;
   }
 
   // 🧩 1️⃣ Handle handshake from ESP
