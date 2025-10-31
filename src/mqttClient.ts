@@ -2,9 +2,9 @@ import mqtt from "mqtt";
 import { prisma } from "./db.js";
 import type { VehicleMessage } from "./types.js";
 
-const MQTT_BROKER = "mqtt://localhost:1883";
-const MQTT_USER = "ESP32MQTT";
-const MQTT_PASS = "ESP32MQTT";
+const MQTT_BROKER = "ws://localhost:9001";
+const MQTT_USER = "WebMonitor";
+const MQTT_PASS = "WebMonitor";
 
 // Topics
 const MQTT_TOPIC_VEHICLE = "esp32mqtt/vehicle";
@@ -33,7 +33,7 @@ client.on("message", async (topic, msg) => {
   const message = msg.toString();
 
   // 🧩 0️⃣ Handle odometer sync request (ESP wants latest odo)
-  if (topic === "esp32mqtt/odo/sync/request") {
+  if (topic === MQTT_TOPIC_ODO_REQ) {
     try {
       // Get the latest record (sorted by timestamp)
       const last = await prisma.vehicle.findFirst({
