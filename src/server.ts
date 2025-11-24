@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { prisma } from "./db.js";
 import "./mqttClient.js";
 
@@ -80,6 +81,14 @@ function getAggregationIntervalMs(range: string): number {
 }
 
 const app = express();
+app.use(
+  cors({
+    // Replace 3000 with your actual Next.js port if different
+    origin: "http://localhost:3000",
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.get("/api/telemetry/latest", async (_req, res) => {
