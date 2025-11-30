@@ -192,7 +192,8 @@ const ALLOWED_METRICS = [
   "brake",
   "engineCoolantTemp",
   "airIntakeTemp",
-  "odoMeter"
+  "odoMeter",
+  "steeringAngle",
 ] as const;
 
 type MetricKey = (typeof ALLOWED_METRICS)[number];

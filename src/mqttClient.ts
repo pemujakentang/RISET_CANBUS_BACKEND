@@ -84,7 +84,8 @@ client.on("message", async (topic, msg) => {
         typeof p.brake === "number" &&
         typeof p.engineCoolantTemp === "number" &&
         typeof p.airIntakeTemp === "number" &&
-        typeof p.odoMeter === "number"
+        typeof p.odoMeter === "number" &&
+        typeof p.steeringAngle === "number"
       ) {
         buffer.push({
           ...p,

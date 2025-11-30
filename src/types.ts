@@ -7,6 +7,7 @@ export interface VehicleData {
   engineCoolantTemp: number;
   airIntakeTemp: number;
   odoMeter: number;
+  steeringAngle: number;
 }
 
 export interface VehicleMessage extends VehicleData {
