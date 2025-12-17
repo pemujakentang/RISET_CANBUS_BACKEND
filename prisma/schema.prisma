@@ -25,5 +25,4 @@ model Vehicle {
   engineCoolantTemp   Float
   airIntakeTemp       Float  
   odoMeter            Float
-  steeringAngle     Float
 }
