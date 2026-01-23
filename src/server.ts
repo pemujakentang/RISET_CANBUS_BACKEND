@@ -84,10 +84,10 @@ const app = express();
 app.use(
   cors({
     // Replace 3000 with your actual Next.js port if different
-    origin: "http://localhost:3000",
+    origin: "https://riset-fe.mpiskawe.my.id",
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 
