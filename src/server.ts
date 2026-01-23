@@ -99,6 +99,11 @@ app.get("/api/telemetry/latest", async (_req, res) => {
   res.json(latest);
 });
 
+// Simple health/test endpoint
+app.get("/api/test", (_req, res) => {
+  res.send("test");
+});
+
 // Define the name for the temporary date field
 const TEMP_DATE_FIELD = "_dateTimestamp"; 
 
