@@ -99,6 +99,11 @@ app.get("/api/telemetry/latest", async (_req, res) => {
   res.json(latest);
 });
 
+// Simple health/test endpoint
+app.get("/api/test", (_req, res) => {
+  res.send("test");
+});
+
 // Define the name for the temporary date field
 const TEMP_DATE_FIELD = "_dateTimestamp"; 
 
@@ -227,6 +232,8 @@ app.get("/api/telemetry/history", async (req, res) => {
 
 
 const PORT = 4000;
-app.listen(PORT, () =>
-  console.log(`🚀 Backend running at http://localhost:${PORT}`)
-);
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Backend running on port ${PORT}`);
+});
+
